@@ -89,10 +89,37 @@
   }
 
   input[type=range] {
-    width: 100%;
+    flex: 1;
     accent-color: #a78bfa;
     cursor: pointer;
+    min-width: 0;
   }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .link-num {
+    width: 48px;
+    background: #12141e;
+    border: 1px solid #3d3f52;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 0.8rem;
+    padding: 4px 6px;
+    text-align: center;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+    flex-shrink: 0;
+    transition: border-color 0.15s;
+  }
+
+  .link-num:focus { border-color: #7c3aed; }
+  .link-num::-webkit-inner-spin-button,
+  .link-num::-webkit-outer-spin-button { -webkit-appearance: none; }
 
   .mode-btns {
     display: flex;
@@ -225,12 +252,79 @@
     transform: translateX(16px);
     background: #a78bfa;
   }
+
+  .coord-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .coord-input-row label {
+    font-size: 0.78rem;
+    color: #6b7280;
+    width: 16px;
+    flex-shrink: 0;
+  }
+
+  .coord-input-row input[type=number] {
+    flex: 1;
+    background: #12141e;
+    border: 1px solid #3d3f52;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 0.82rem;
+    padding: 5px 8px;
+    width: 0;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .coord-input-row input[type=number]:focus {
+    border-color: #7c3aed;
+  }
+
+  .coord-input-row input[type=number]::-webkit-inner-spin-button,
+  .coord-input-row input[type=number]::-webkit-outer-spin-button { opacity: 0.4; }
+
+  .go-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid #7c3aed;
+    background: #4c1d95;
+    color: #e9d5ff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+
+  .go-btn:hover { background: #6d28d9; }
+
+  .arrow-hint {
+    font-size: 0.72rem;
+    color: #4b5563;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .arrow-hint kbd {
+    background: #22253a;
+    border: 1px solid #3d3f52;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 0.68rem;
+    color: #9ca3af;
+    font-family: inherit;
+  }
 </style>
 </head>
 <body>
 
 <h1>2-Link Inverse Kinematics</h1>
-<p class="subtitle">Drag the target (circle) or click anywhere on the canvas</p>
+<p class="subtitle">Drag the target · click the canvas · type coordinates · or use arrow keys</p>
 
 <div class="layout">
   <!-- LEFT PANEL -->
@@ -238,12 +332,18 @@
     <h2>Configuration</h2>
 
     <div class="control-row">
-      <label>Link 1 Length <span id="l1val">150</span></label>
-      <input type="range" id="l1" min="40" max="250" value="150">
+      <label>Link 1 Length</label>
+      <div class="slider-row">
+        <input type="range" id="l1" min="40" max="250" value="150">
+        <input type="number" class="link-num" id="l1num" value="150" min="40" max="250">
+      </div>
     </div>
     <div class="control-row">
-      <label>Link 2 Length <span id="l2val">120</span></label>
-      <input type="range" id="l2" min="40" max="250" value="120">
+      <label>Link 2 Length</label>
+      <div class="slider-row">
+        <input type="range" id="l2" min="40" max="250" value="120">
+        <input type="number" class="link-num" id="l2num" value="120" min="40" max="250">
+      </div>
     </div>
 
     <h2 style="margin-top:4px">Elbow Configuration</h2>
@@ -290,6 +390,18 @@
 
   <!-- RIGHT PANEL -->
   <div class="panel">
+    <h2>Set Target</h2>
+    <div class="coord-input-row">
+      <label>X</label>
+      <input type="number" id="inX" value="180" step="1">
+      <label>Y</label>
+      <input type="number" id="inY" value="-80" step="1">
+      <button class="go-btn" id="goBtn">Go</button>
+    </div>
+    <div class="arrow-hint">
+      <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> nudge · hold <kbd>Shift</kbd> for ×10
+    </div>
+
     <h2>Live Values</h2>
     <div class="info-box">
       <div class="row"><span class="label">Target (x, y)</span> <span class="val" id="infoTarget">—</span></div>
@@ -342,14 +454,47 @@ let showGhost     = true;
 let target = { x: 180, y: -80 };   // in arm-space coords (Y up)
 let dragging = false;
 
-// UI bindings
-const slL1  = document.getElementById('l1');
-const slL2  = document.getElementById('l2');
-const l1Val = document.getElementById('l1val');
-const l2Val = document.getElementById('l2val');
+// UI bindings — link lengths
+const slL1   = document.getElementById('l1');
+const slL2   = document.getElementById('l2');
+const numL1  = document.getElementById('l1num');
+const numL2  = document.getElementById('l2num');
 
-slL1.addEventListener('input', () => { L1 = +slL1.value; l1Val.textContent = L1; draw(); });
-slL2.addEventListener('input', () => { L2 = +slL2.value; l2Val.textContent = L2; draw(); });
+// Commit a link length: clamp, update both slider and state
+function commitL1(v) {
+  const clamped = Math.min(250, Math.max(40, Math.round(+v) || L1));
+  L1 = clamped;
+  slL1.value  = clamped;
+  numL1.value = clamped;
+}
+function commitL2(v) {
+  const clamped = Math.min(250, Math.max(40, Math.round(+v) || L2));
+  L2 = clamped;
+  slL2.value  = clamped;
+  numL2.value = clamped;
+}
+
+// Slider: commit immediately on drag
+slL1.addEventListener('input', () => commitL1(slL1.value));
+slL2.addEventListener('input', () => commitL2(slL2.value));
+
+// Number input: while typing just mirror the raw text to the slider preview,
+// only commit (clamp) on Enter or blur so mid-type values aren't forced.
+numL1.addEventListener('input', () => {
+  const v = parseFloat(numL1.value);
+  if (!isNaN(v) && v >= 1) slL1.value = Math.min(250, v);
+  if (!isNaN(v) && v >= 40 && v <= 250) { L1 = Math.round(v); }
+});
+numL2.addEventListener('input', () => {
+  const v = parseFloat(numL2.value);
+  if (!isNaN(v) && v >= 1) slL2.value = Math.min(250, v);
+  if (!isNaN(v) && v >= 40 && v <= 250) { L2 = Math.round(v); }
+});
+
+numL1.addEventListener('blur',    () => commitL1(numL1.value));
+numL2.addEventListener('blur',    () => commitL2(numL2.value));
+numL1.addEventListener('keydown', e => { if (e.key === 'Enter') { commitL1(numL1.value); numL1.blur(); } });
+numL2.addEventListener('keydown', e => { if (e.key === 'Enter') { commitL2(numL2.value); numL2.blur(); } });
 
 document.getElementById('btnElbowUp').addEventListener('click', () => setElbow( 1));
 document.getElementById('btnElbowDn').addEventListener('click', () => setElbow(-1));
@@ -664,6 +809,56 @@ cv.addEventListener('mouseleave',() => { dragging = false; });
 cv.addEventListener('touchstart', e => { e.preventDefault(); dragging = true; target = getArmPos(e); }, { passive: false });
 cv.addEventListener('touchmove',  e => { e.preventDefault(); if (dragging) target = getArmPos(e); },   { passive: false });
 cv.addEventListener('touchend',   () => { dragging = false; });
+
+// --- Coordinate inputs ---
+const inX   = document.getElementById('inX');
+const inY   = document.getElementById('inY');
+const goBtn = document.getElementById('goBtn');
+
+function applyInputs() {
+  const nx = parseFloat(inX.value);
+  const ny = parseFloat(inY.value);
+  if (!isNaN(nx) && !isNaN(ny)) {
+    target.x = nx;
+    target.y = ny;
+  }
+}
+
+goBtn.addEventListener('click', applyInputs);
+
+// Also apply on Enter from either input
+[inX, inY].forEach(inp => {
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { applyInputs(); inp.blur(); } });
+});
+
+// Keep inputs in sync when dragging
+function syncInputs() {
+  inX.value = Math.round(target.x);
+  inY.value = Math.round(target.y);
+}
+
+// Patch draw() to also sync inputs each frame
+const _draw = draw;
+// Override handled below via wrapping the loop
+
+// --- Arrow key nudge ---
+document.addEventListener('keydown', e => {
+  // Don't hijack arrow keys while typing in the inputs
+  if (document.activeElement === inX || document.activeElement === inY) return;
+
+  const step = e.shiftKey ? 10 : 1;
+  if      (e.key === 'ArrowRight') { target.x += step; e.preventDefault(); }
+  else if (e.key === 'ArrowLeft')  { target.x -= step; e.preventDefault(); }
+  else if (e.key === 'ArrowUp')    { target.y += step; e.preventDefault(); }
+  else if (e.key === 'ArrowDown')  { target.y -= step; e.preventDefault(); }
+  else return;
+  syncInputs();
+});
+
+// Sync inputs on mouse drag too
+cv.addEventListener('mousemove', () => { if (dragging) syncInputs(); });
+cv.addEventListener('mousedown', () => syncInputs());
+cv.addEventListener('touchmove', () => syncInputs(), { passive: true });
 
 loop();
 </script>
