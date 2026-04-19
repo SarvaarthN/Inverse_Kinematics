@@ -334,15 +334,15 @@
     <div class="control-row">
       <label>Link 1 Length</label>
       <div class="slider-row">
-        <input type="range" id="l1" min="40" max="250" value="150">
-        <input type="number" class="link-num" id="l1num" value="150" min="40" max="250">
+        <input type="range" id="l1" min="0" max="250" value="150">
+        <input type="number" class="link-num" id="l1num" value="150" min="0" max="250">
       </div>
     </div>
     <div class="control-row">
       <label>Link 2 Length</label>
       <div class="slider-row">
-        <input type="range" id="l2" min="40" max="250" value="120">
-        <input type="number" class="link-num" id="l2num" value="120" min="40" max="250">
+        <input type="range" id="l2" min="0" max="250" value="120">
+        <input type="number" class="link-num" id="l2num" value="120" min="0" max="250">
       </div>
     </div>
 
@@ -410,7 +410,9 @@
       <div class="row"><span class="label">Min reach</span>    <span class="val" id="infoMin">—</span></div>
       <div class="row"><span class="label">Reachable?</span>   <span class="val" id="infoReach">—</span></div>
       <div class="row"><span class="label">θ₁ (shoulder)</span><span class="val" id="infoT1">—</span></div>
+      <div class="row"><span class="label">θ₁ (rad)</span>     <span class="val" id="infoT1r">—</span></div>
       <div class="row"><span class="label">θ₂ (elbow)</span>   <span class="val" id="infoT2">—</span></div>
+      <div class="row"><span class="label">θ₂ (rad)</span>     <span class="val" id="infoT2r">—</span></div>
       <div class="row"><span class="label">Elbow position</span><span class="val" id="infoElbow">—</span></div>
     </div>
 
@@ -462,13 +464,13 @@ const numL2  = document.getElementById('l2num');
 
 // Commit a link length: clamp, update both slider and state
 function commitL1(v) {
-  const clamped = Math.min(250, Math.max(40, Math.round(+v) || L1));
+  const clamped = Math.min(250, Math.max(0, Math.round(+v) || L1));
   L1 = clamped;
   slL1.value  = clamped;
   numL1.value = clamped;
 }
 function commitL2(v) {
-  const clamped = Math.min(250, Math.max(40, Math.round(+v) || L2));
+  const clamped = Math.min(250, Math.max(0, Math.round(+v) || L2));
   L2 = clamped;
   slL2.value  = clamped;
   numL2.value = clamped;
@@ -483,12 +485,12 @@ slL2.addEventListener('input', () => commitL2(slL2.value));
 numL1.addEventListener('input', () => {
   const v = parseFloat(numL1.value);
   if (!isNaN(v) && v >= 1) slL1.value = Math.min(250, v);
-  if (!isNaN(v) && v >= 40 && v <= 250) { L1 = Math.round(v); }
+  if (!isNaN(v) && v >= 0 && v <= 250) { L1 = Math.round(v); }
 });
 numL2.addEventListener('input', () => {
   const v = parseFloat(numL2.value);
   if (!isNaN(v) && v >= 1) slL2.value = Math.min(250, v);
-  if (!isNaN(v) && v >= 40 && v <= 250) { L2 = Math.round(v); }
+  if (!isNaN(v) && v >= 0 && v <= 250) { L2 = Math.round(v); }
 });
 
 numL1.addEventListener('blur',    () => commitL1(numL1.value));
@@ -536,7 +538,8 @@ function fk(t1, t2) {
   return { elbow: { x: ex, y: ey }, tip: { x: tx, y: ty } };
 }
 
-function deg(r) { return (r * 180 / Math.PI).toFixed(1) + '°'; }
+function deg(r) { return (r * 180 / Math.PI).toFixed(1) + '\u00b0'; }
+function rad(r) { return r.toFixed(4) + ' rad'; }
 function fmt(v) { return v.toFixed(1); }
 
 function drawArm(sol, alpha, linkAlpha, jointR) {
@@ -775,7 +778,9 @@ function draw() {
   if (sol) {
     const fwd = fk(sol.theta1, sol.theta2);
     document.getElementById('infoT1').textContent    = deg(sol.theta1);
+    document.getElementById('infoT1r').textContent   = rad(sol.theta1);
     document.getElementById('infoT2').textContent    = deg(sol.theta2);
+    document.getElementById('infoT2r').textContent   = rad(sol.theta2);
     document.getElementById('infoElbow').textContent = `(${fmt(fwd.elbow.x)}, ${fmt(fwd.elbow.y)})`;
 
     const cosT2 = (D * D - L1 * L1 - L2 * L2) / (2 * L1 * L2);
@@ -784,7 +789,7 @@ function draw() {
     document.getElementById('fT2').textContent   = deg(sol.theta2);
     document.getElementById('fT1').textContent   = deg(sol.theta1);
   } else {
-    ['infoT1','infoT2','infoElbow','fCos2','fT2','fT1'].forEach(id => {
+    ['infoT1','infoT1r','infoT2','infoT2r','infoElbow','fCos2','fT2','fT1'].forEach(id => {
       document.getElementById(id).textContent = '—';
     });
   }
